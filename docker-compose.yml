@@ -1,0 +1,48 @@
+name: odoo19-tfc-local
+
+# Entorno de desarrollo local del módulo auditoria_odoo (Odoo 19 Community).
+# Uso:  docker compose up -d   →   http://localhost:8169
+# La raíz del repo se monta como carpeta de addons: Odoo encuentra ahí el
+# módulo `auditoria_odoo/` (busca subcarpetas con __manifest__.py).
+
+services:
+  db:
+    image: postgres:16
+    container_name: tfc_local_db
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: odoo
+      POSTGRES_PASSWORD: odoo
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  web:
+    image: odoo:19.0
+    container_name: tfc_local_odoo
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      # Se usa el 8169 (igual que en el servidor del TFC) para no chocar con
+      # otras instancias de Odoo que puedas tener en el 8069.
+      - "8169:8069"      # interfaz web    → http://localhost:8169
+      - "8172:8072"      # longpolling / chat en vivo
+    environment:
+      HOST: db
+      USER: odoo
+      PASSWORD: odoo
+    volumes:
+      - web_data:/var/lib/odoo      # filestore (adjuntos)
+      - ./config:/etc/odoo          # configuración
+      - ./:/mnt/extra-addons        # ← la raíz del repo = ruta de addons
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  web_data:

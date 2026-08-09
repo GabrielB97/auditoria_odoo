@@ -3,7 +3,7 @@
     "version": "19.0.1.0.0",
     "summary": "Auditoría interna y aprovechamiento de los registros de actividad del ERP",
     "author": "Gabriel Bula, Giuliano Galván, Nicole Viarengo",
-    "website": "https://github.com/USUARIO/auditoria_odoo",
+    "website": "https://github.com/GabrielB97/auditoria_odoo",
     "license": "LGPL-3",
     "category": "Tools",
     "depends": ["base", "mail"],
