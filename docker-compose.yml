@@ -38,9 +38,10 @@ services:
       USER: odoo
       PASSWORD: odoo
     volumes:
-      - web_data:/var/lib/odoo      # filestore (adjuntos)
-      - ./config:/etc/odoo          # configuración
-      - ./:/mnt/extra-addons        # ← la raíz del repo = ruta de addons
+      - web_data:/var/lib/odoo                    # filestore (adjuntos)
+      - ./config:/etc/odoo                        # configuración
+      - ./:/mnt/extra-addons                      # ← la raíz del repo = ruta de addons
+      - ./addons-externos:/mnt/addons-externos    # módulos de terceros (evaluación)
     restart: unless-stopped
 
 volumes:

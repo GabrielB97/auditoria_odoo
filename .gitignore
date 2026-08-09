@@ -1,3 +1,6 @@
+# Módulos de terceros que se instalan sólo para evaluar (no son del proyecto)
+/addons-externos/
+
 __pycache__/
 *.py[cod]
 *.pyo
