@@ -1,5 +1,11 @@
+# Módulos de terceros que se instalan sólo para evaluar (no son del proyecto)
+/addons-externos/
+
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.log
 .idea/
 .vscode/
+.DS_Store
+Thumbs.db
