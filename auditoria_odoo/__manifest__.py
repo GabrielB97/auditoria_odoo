@@ -6,7 +6,7 @@
     "website": "https://github.com/USUARIO/auditoria_odoo",
     "license": "LGPL-3",
     "category": "Tools",
-    "depends": ["base", "mail"],
+    "depends": ["base", "mail", "web"],
     "data": [
         "security/ir.model.access.csv",
     ],
