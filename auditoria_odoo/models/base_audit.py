@@ -48,6 +48,13 @@ PREFIJOS_EXCLUIDOS = (
     "res.users.log",
 )
 
+# Campos que no se registran: los mantiene Odoo automáticamente y no
+# representan una decisión de negocio. Incluirlos ensuciaría la evidencia
+# (cada escritura tocaría `write_date` y `write_uid`).
+CAMPOS_IGNORADOS = {
+    "write_date", "write_uid", "create_date", "create_uid", "__last_update",
+}
+
 
 class Base(models.AbstractModel):
     """Extensión de `base`: todos los modelos de Odoo heredan estos métodos."""
@@ -171,22 +178,62 @@ class Base(models.AbstractModel):
 
         Debe llamarse **antes** del `super().write()`: después, los valores
         anteriores ya se perdieron.
+
+        Sólo se incluyen los campos que **realmente cambian de valor**. Odoo
+        reescribe con frecuencia campos con el valor que ya tenían (al guardar
+        un formulario se envía todo, no sólo lo editado); registrar eso
+        generaría eventos vacíos que no aportan evidencia.
+
+        :return: {id_registro: {campo: {"old": ..., "new": ...}}}, sin las
+                 entradas de los registros que no cambiaron en nada.
         """
         try:
-            campos = [nombre for nombre in vals if nombre in self._fields]
-            return {
-                registro.id: {
-                    campo: {
-                        "old": self._auditoria_serializar(registro[campo]),
-                        "new": self._auditoria_serializar(vals[campo]),
-                    }
-                    for campo in campos
-                }
-                for registro in self
-            }
+            campos = [
+                nombre for nombre in vals
+                if nombre in self._fields and nombre not in CAMPOS_IGNORADOS
+            ]
+            if not campos:
+                return {}
+
+            cambios = {}
+            for registro in self:
+                cambios_registro = {}
+                for campo in campos:
+                    anterior = self._auditoria_serializar(registro[campo])
+                    nuevo = self._auditoria_serializar(vals[campo])
+                    if anterior != nuevo:
+                        cambios_registro[campo] = {"old": anterior, "new": nuevo}
+                if cambios_registro:
+                    cambios[registro.id] = cambios_registro
+            return cambios
         except Exception:  # noqa: BLE001
             _logger.exception("Auditoría: no se pudieron capturar los cambios")
             return {}
+
+    def auditoria_registrar_confirmacion(self):
+        """Registra explícitamente la confirmación de un documento.
+
+        Pensado para llamarse desde el método de confirmación de cada modelo,
+        que es la forma **más precisa** de detectar el hecho:
+
+            class SaleOrder(models.Model):
+                _inherit = "sale.order"
+
+                def action_confirm(self):
+                    resultado = super().action_confirm()
+                    self.auditoria_registrar_confirmacion()
+                    return resultado
+
+        Se expone como método público porque forma parte de la interfaz del
+        módulo: otros módulos (por ejemplo, un puente hacia ventas o compras)
+        pueden usarlo sin depender de detalles internos.
+
+        La detección automática por el campo `state` (ver
+        `_auditoria_clasificar_escritura`) se mantiene como red de seguridad
+        para los modelos que no declaren su confirmación de forma explícita.
+        """
+        if self._auditoria_activa("write"):
+            self._auditoria_registrar("confirm")
 
     @staticmethod
     def _auditoria_clasificar_escritura(vals):
@@ -194,9 +241,14 @@ class Base(models.AbstractModel):
 
         En Odoo, el avance de un documento por su flujo (borrador → confirmado →
         hecho) se materializa como una escritura sobre el campo `state`. Esa es
-        la señal que se usa para distinguir una "confirmación de documento" de
-        una modificación cualquiera, tal como pide el criterio de aceptación
-        de H1.
+        la señal genérica que distingue una "confirmación de documento" de una
+        modificación cualquiera, tal como pide el criterio de aceptación de H1.
+
+        Es una heurística: funciona para cualquier modelo sin necesidad de
+        conocerlo. Cuando se quiere precisión —saber que se ejecutó
+        *exactamente* la acción de confirmar y no cualquier cambio de estado—
+        conviene llamar a `auditoria_registrar_confirmacion()` desde el método
+        correspondiente del modelo.
         """
         return "confirm" if "state" in vals else "write"
 
@@ -240,8 +292,11 @@ class Base(models.AbstractModel):
 
         resultado = super().write(vals)
 
-        if auditar:
-            self._auditoria_registrar(accion, cambios)
+        # Sin cambios reales no hay evento: una escritura que sólo reescribe
+        # los mismos valores (o campos técnicos) no es evidencia de nada.
+        if auditar and cambios:
+            registros_con_cambios = self.filtered(lambda r: r.id in cambios)
+            registros_con_cambios._auditoria_registrar(accion, cambios)
         return resultado
 
     def unlink(self):

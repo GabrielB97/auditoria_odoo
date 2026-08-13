@@ -94,6 +94,69 @@ class TestActivityEvent(TransactionCase):
         self.assertEqual(clasificar({}), "write")
 
     # ------------------------------------------------------------------
+    # Señal sobre ruido: sólo se registra lo que cambió de verdad
+    # ------------------------------------------------------------------
+    def test_reescribir_el_mismo_valor_no_genera_evento(self):
+        """Guardar sin cambiar nada no debe dejar evidencia.
+
+        Al guardar un formulario, Odoo reescribe todos los campos, no sólo
+        los editados. Registrar eso llenaría la auditoría de eventos vacíos.
+        """
+        contacto = self.Contacto.create({"name": "Mismo valor"})
+        antes = len(self._eventos_de(contacto, "write"))
+
+        contacto.write({"name": "Mismo valor"})          # idéntico al actual
+
+        self.assertEqual(len(self._eventos_de(contacto, "write")), antes,
+                         "Reescribir el mismo valor no debería generar un evento.")
+
+    def test_los_campos_tecnicos_no_generan_evento(self):
+        """`write_date` y compañía los mantiene Odoo: no son evidencia."""
+        contacto = self.Contacto.create({"name": "Campos técnicos"})
+        antes = len(self._eventos_de(contacto, "write"))
+
+        contacto.write({"write_date": "2026-01-01 00:00:00"})
+
+        self.assertEqual(len(self._eventos_de(contacto, "write")), antes,
+                         "Un cambio de campo técnico no debería generar un evento.")
+
+    def test_solo_se_guardan_los_campos_que_cambiaron(self):
+        """Si se escriben dos campos y sólo uno cambia, se registra ese uno."""
+        contacto = self.Contacto.create({"name": "Ana", "ref": "REF-1"})
+        contacto.write({"name": "Ana", "ref": "REF-2"})   # `name` no cambia
+
+        evento = self._eventos_de(contacto, "write")
+        self.assertEqual(len(evento), 1)
+        self.assertIn("ref", evento.changes)
+        self.assertNotIn("name", evento.changes,
+                         "No debería registrarse un campo cuyo valor no cambió.")
+
+    # ------------------------------------------------------------------
+    # Confirmación explícita de documentos
+    # ------------------------------------------------------------------
+    def test_confirmacion_explicita_genera_evento(self):
+        """`auditoria_registrar_confirmacion()` deja un evento de confirmación.
+
+        Es el mecanismo preciso, para que cada modelo declare su confirmación
+        desde el método que corresponda (`action_confirm`, `action_post`, …).
+        """
+        contacto = self.Contacto.create({"name": "Documento"})
+
+        contacto.auditoria_registrar_confirmacion()
+
+        evento = self._eventos_de(contacto, "confirm")
+        self.assertEqual(len(evento), 1)
+        self.assertEqual(evento.res_name, "Documento")
+
+    def test_confirmacion_explicita_respeta_la_configuracion(self):
+        """Si el modelo no se audita, la confirmación explícita no registra nada."""
+        pais = self.env["res.country.group"].create({"name": "Sin auditar"})
+
+        pais.auditoria_registrar_confirmacion()
+
+        self.assertFalse(self.Evento.search([("model_name", "=", "res.country.group")]))
+
+    # ------------------------------------------------------------------
     # Inmutabilidad (append-only)
     # ------------------------------------------------------------------
     def test_un_evento_no_se_puede_modificar(self):
