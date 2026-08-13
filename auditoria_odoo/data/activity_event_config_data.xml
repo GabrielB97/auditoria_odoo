@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Configuración inicial de la auditoría (H1).
+
+    Se arranca con un conjunto acotado de modelos, no con todo el ERP:
+
+      * permite verificar el comportamiento sobre algo conocido (los contactos),
+      * y mantiene bajo el impacto en performance desde el primer día.
+
+    Los `noupdate="1"` hacen que estos registros se creen en la instalación pero
+    NO se pisen al actualizar el módulo: si el equipo desmarca una opción desde
+    la interfaz, su decisión se respeta.
+-->
+<odoo>
+    <data noupdate="1">
+
+        <!-- Contactos: modelo de negocio presente en cualquier instalación,
+             ideal para probar y demostrar el registro de eventos. -->
+        <record id="config_res_partner" model="activity.event.config">
+            <field name="model_id" ref="base.model_res_partner"/>
+        </record>
+
+        <!-- Usuarios: alta, baja y modificación de cuentas es información
+             sensible para cualquier auditoría interna. -->
+        <record id="config_res_users" model="activity.event.config">
+            <field name="model_id" ref="base.model_res_users"/>
+        </record>
+
+        <!-- Compañías: los cambios de configuración de la empresa deben quedar
+             registrados. -->
+        <record id="config_res_company" model="activity.event.config">
+            <field name="model_id" ref="base.model_res_company"/>
+        </record>
+
+    </data>
+</odoo>
