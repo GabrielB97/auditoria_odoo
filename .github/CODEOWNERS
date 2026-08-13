@@ -1,0 +1,16 @@
+# Propietarios del código — https://docs.github.com/articles/about-code-owners
+#
+# Cualquier Pull Request que toque estos archivos requiere la aprobación
+# de quien figure acá. Combinado con la regla "Require review from Code
+# Owners" sobre `main`, garantiza que nada se integra en la rama estable
+# sin el visto bueno del responsable del repositorio.
+
+# Todo el repositorio
+*                       @GabrielB97
+
+# Configuración del entorno y del flujo de trabajo: cambiarlos afecta a
+# los tres integrantes, así que llevan revisión sí o sí.
+/docker-compose.yml     @GabrielB97
+/config/                @GabrielB97
+/.github/               @GabrielB97
+/CONTRIBUTING.md        @GabrielB97
