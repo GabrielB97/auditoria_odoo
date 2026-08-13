@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Vistas de la auditoría (H1).
+
+    Son deliberadamente de SOLO LECTURA: create="false" edit="false" delete="false".
+    Es la contracara visual del append-only del modelo, para que la interfaz no
+    ofrezca ni siquiera la opción de alterar la evidencia.
+-->
+<odoo>
+
+    <!-- ============================================================ -->
+    <!-- Eventos de actividad                                          -->
+    <!-- ============================================================ -->
+
+    <record id="view_activity_event_list" model="ir.ui.view">
+        <field name="name">activity.event.list</field>
+        <field name="model">activity.event</field>
+        <field name="arch" type="xml">
+            <list string="Eventos de actividad" create="false" edit="false" delete="false">
+                <field name="timestamp"/>
+                <field name="user_id"/>
+                <field name="action_type"/>
+                <field name="model_name"/>
+                <field name="res_name"/>
+                <field name="res_id" optional="hide"/>
+                <field name="company_id" groups="base.group_multi_company" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_activity_event_form" model="ir.ui.view">
+        <field name="name">activity.event.form</field>
+        <field name="model">activity.event</field>
+        <field name="arch" type="xml">
+            <form string="Evento de actividad" create="false" edit="false" delete="false">
+                <sheet>
+                    <group>
+                        <group string="Qué ocurrió">
+                            <field name="action_type"/>
+                            <field name="timestamp"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group string="Sobre qué registro">
+                            <field name="model_name"/>
+                            <field name="res_name"/>
+                            <field name="res_id"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                    <group string="Cambios registrados">
+                        <field name="changes" nolabel="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Filtros y agrupaciones. Adelantan lo que después expondrá la API (H2). -->
+    <record id="view_activity_event_search" model="ir.ui.view">
+        <field name="name">activity.event.search</field>
+        <field name="model">activity.event</field>
+        <field name="arch" type="xml">
+            <search string="Buscar eventos">
+                <field name="res_name" string="Registro"/>
+                <field name="user_id"/>
+                <field name="model_name"/>
+
+                <filter name="filtro_hoy" string="Hoy"
+                        domain="[('timestamp', '&gt;=', datetime.datetime.combine(context_today(), datetime.time(0,0,0)))]"/>
+                <separator/>
+                <filter name="filtro_altas" string="Altas"
+                        domain="[('action_type', '=', 'create')]"/>
+                <filter name="filtro_modificaciones" string="Modificaciones"
+                        domain="[('action_type', '=', 'write')]"/>
+                <filter name="filtro_eliminaciones" string="Eliminaciones"
+                        domain="[('action_type', '=', 'unlink')]"/>
+                <filter name="filtro_accesos" string="Accesos"
+                        domain="[('action_type', '=', 'read')]"/>
+                <filter name="filtro_confirmaciones" string="Confirmaciones"
+                        domain="[('action_type', '=', 'confirm')]"/>
+
+                <!-- Agrupaciones. En Odoo 19 los filtros de agrupación van
+                     directamente dentro de <search>: el elemento <group> sólo
+                     admite campos, no filtros. -->
+                <separator/>
+                <filter name="agrupar_usuario" string="Usuario"
+                        domain="[]" context="{'group_by': 'user_id'}"/>
+                <filter name="agrupar_accion" string="Tipo de acción"
+                        domain="[]" context="{'group_by': 'action_type'}"/>
+                <filter name="agrupar_modelo" string="Modelo"
+                        domain="[]" context="{'group_by': 'model_name'}"/>
+                <filter name="agrupar_fecha" string="Fecha"
+                        domain="[]" context="{'group_by': 'timestamp:day'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_activity_event" model="ir.actions.act_window">
+        <field name="name">Eventos de actividad</field>
+        <field name="res_model">activity.event</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_activity_event_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Todavía no hay eventos registrados</p>
+            <p>
+                Los eventos se registran automáticamente sobre los modelos configurados
+                en <b>Auditoría → Configuración → Modelos auditados</b>.
+            </p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- Configuración: qué modelos se auditan                         -->
+    <!-- ============================================================ -->
+
+    <record id="view_activity_event_config_list" model="ir.ui.view">
+        <field name="name">activity.event.config.list</field>
+        <field name="model">activity.event.config</field>
+        <field name="arch" type="xml">
+            <list string="Modelos auditados" editable="bottom">
+                <field name="model_id"/>
+                <field name="log_create"/>
+                <field name="log_write"/>
+                <field name="log_unlink"/>
+                <field name="log_read"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_activity_event_config_form" model="ir.ui.view">
+        <field name="name">activity.event.config.form</field>
+        <field name="model">activity.event.config</field>
+        <field name="arch" type="xml">
+            <form string="Modelo auditado">
+                <sheet>
+                    <group>
+                        <field name="model_id"/>
+                        <field name="active"/>
+                    </group>
+                    <group string="Operaciones a registrar">
+                        <field name="log_create"/>
+                        <field name="log_write"/>
+                        <field name="log_unlink"/>
+                        <field name="log_read"/>
+                    </group>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>Atención con «Registrar accesos».</strong>
+                        Cada apertura de una lista o un formulario genera lecturas de
+                        todos los registros visibles. Activarlo produce mucho volumen
+                        de datos y puede afectar la performance: conviene usarlo sólo
+                        en modelos sensibles y por períodos acotados.
+                    </div>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_activity_event_config" model="ir.actions.act_window">
+        <field name="name">Modelos auditados</field>
+        <field name="res_model">activity.event.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Definí qué modelos auditar</p>
+            <p>
+                Sólo se registran los modelos que figuren en esta lista.
+                Los que no estén, no generan ningún trabajo adicional para el ERP.
+            </p>
+        </field>
+    </record>
+
+    <!-- ============================================================ -->
+    <!-- Menús                                                         -->
+    <!-- ============================================================ -->
+
+    <menuitem id="menu_auditoria_root"
+              name="Auditoría"
+              web_icon="auditoria_odoo,static/description/icon.png"
+              sequence="90"/>
+
+    <menuitem id="menu_auditoria_eventos"
+              name="Eventos de actividad"
+              parent="menu_auditoria_root"
+              action="action_activity_event"
+              sequence="10"/>
+
+    <menuitem id="menu_auditoria_configuracion"
+              name="Configuración"
+              parent="menu_auditoria_root"
+              sequence="90"
+              groups="base.group_system"/>
+
+    <menuitem id="menu_auditoria_config_modelos"
+              name="Modelos auditados"
+              parent="menu_auditoria_configuracion"
+              action="action_activity_event_config"
+              sequence="10"/>
+
+</odoo>
