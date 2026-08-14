@@ -54,13 +54,18 @@ class ActivityEventConfig(models.Model):
              "sensibles y por un período acotado.",
     )
 
-    _sql_constraints = [
-        (
-            "model_uniq",
-            "unique(model_id)",
-            "Ya existe una configuración de auditoría para ese modelo.",
-        ),
-    ]
+    # Un modelo no puede tener dos configuraciones: la capa de captura resuelve
+    # la configuración por modelo y, si hubiera duplicados, quedaría indefinido
+    # cuál se aplica.
+    #
+    # En Odoo 19 las restricciones de tabla se declaran con `models.Constraint`.
+    # La forma anterior (`_sql_constraints = [...]`) ya no tiene efecto: Odoo la
+    # ignora y sólo emite un aviso en el log, por lo que la restricción nunca
+    # llegaba a crearse en la base de datos.
+    _model_uniq = models.Constraint(
+        "UNIQUE(model_id)",
+        "Ya existe una configuración de auditoría para ese modelo.",
+    )
 
     # ------------------------------------------------------------------
     # Invalidación de la caché
