@@ -10,8 +10,11 @@ Cada prueba verifica uno de los criterios de aceptación de la historia:
 Y además la propiedad que sostiene todo el producto: la **inmutabilidad**.
 """
 
+from psycopg2 import IntegrityError
+
 from odoo.exceptions import UserError
 from odoo.tests import TransactionCase, tagged
+from odoo.tools import mute_logger
 
 
 @tagged("post_install", "-at_install")
@@ -205,3 +208,16 @@ class TestActivityEvent(TransactionCase):
             self._eventos_de(contacto, "read"),
             "Los accesos no deberían registrarse si log_read está desactivado.",
         )
+
+    @mute_logger("odoo.sql_db")
+    def test_un_modelo_no_puede_tener_dos_configuraciones(self):
+        """La restricción de unicidad tiene que existir realmente en la base.
+
+        Si un modelo tuviera dos configuraciones, quedaría indefinido cuál se
+        aplica. La prueba fuerza el error de la base de datos, no la validación
+        de Python: es la única forma de comprobar que la restricción se creó.
+        """
+        with self.assertRaises(IntegrityError):
+            with self.cr.savepoint():
+                self.Config.create({"model_id": self.config_contacto.model_id.id})
+                self.env.flush_all()
