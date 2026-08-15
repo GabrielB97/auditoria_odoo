@@ -373,6 +373,37 @@ class TestSearchEvents(TransactionCase):
         self.assertEqual(respuesta["page"], 1)
         self.assertEqual(respuesta["per_page"], 25)
 
+    # ==================================================================
+    # 7. De punta a punta: capturar (H1) + consultar (H2)
+    # ==================================================================
+    def test_un_evento_capturado_de_verdad_se_puede_consultar(self):
+        """Recorrido completo sobre un modelo realmente auditado.
+
+        Las demás pruebas crean los eventos a mano para aislar la consulta de
+        la captura. Ésta hace el camino entero: se modifica un contacto, la
+        capa de captura de H1 genera el evento, y la API de H2 lo encuentra
+        con el detalle correcto.
+
+        Es la **costura** entre las dos historias. Cada capa está probada por
+        separado; ésta es la única que verifica que se entienden entre sí, que
+        es donde suelen aparecer los problemas en una demo.
+        """
+        contacto = self.env["res.partner"].create({"name": "Cliente de integración"})
+        contacto.write({"phone": "3564-555555"})
+
+        respuesta = self.Evento.search_events(filters={
+            "model": "res.partner",
+            "res_id": contacto.id,
+            "action": "write",
+        })
+
+        self.assertEqual(respuesta["total"], 1,
+                         "La modificación de un contacto auditado debería ser "
+                         "consultable por la API.")
+        evento = respuesta["results"][0]
+        self.assertEqual(evento["res_name"], "Cliente de integración")
+        self.assertEqual(evento["changes"]["phone"]["new"], "3564-555555")
+
     def test_cada_evento_trae_los_campos_del_contrato(self):
         """Incluye el detalle de cambios y el nombre congelado del registro."""
         self._crear_evento(
