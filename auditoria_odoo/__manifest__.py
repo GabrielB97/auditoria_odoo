@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "Auditoría de Actividad Odoo",
-    "version": "19.0.1.1.1",
+    "version": "19.0.1.2.0",
     "summary": "Auditoría interna y aprovechamiento de los registros de actividad del ERP",
     "author": "Gabriel Bula, Giuliano Galván, Nicole Viarengo",
     "website": "https://github.com/GabrielB97/auditoria_odoo",
